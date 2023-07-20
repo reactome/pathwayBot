@@ -1,0 +1,9 @@
+openai
+chromadb
+faiss-cpu
+langchain
+dotenv
+requests
+metapub
+urllib
+chainlit
