@@ -7,3 +7,5 @@ requests
 metapub
 urllib
 chainlit
+os
+pandas

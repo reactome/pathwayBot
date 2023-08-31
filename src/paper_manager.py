@@ -21,9 +21,9 @@ class PaperManager:
                 query = query.strip()
                 print(query)
                 pmidList = PubMedFetcher().pmids_for_medical_genetics_query(query=query, retmax=num_pmids, pmc_only=pmc_only)
-                print("pmids:")
-                print(pmidList)
-                self.paperScraper.scrape_all(pmidList, query)
+                print("pmids:", pmidList)
+                ### Only go through the pdf download process if the search is restricted to OA papers from PMC
+                self.paperScraper.scrape_all(pmidList, query, fetchPDF=pmc_only)
         self.paperScraper.write_meta()
 
     def get_papers_using_pmidFile(self, pmidFile):

@@ -45,6 +45,7 @@ class PaperScraper:
     ## url: 'https://onlinelibrary.wiley.com/doi/pdf/10.1002/jcb.20409'
     ## output_name: 15723341.pdf
     def store_pdf(self, url, output_name):
+        print("Storing metadata for pmid:", pmid)
         r = requests.get(url)
         if r.headers.get('content-type') == 'application/pdf':
             directory = os.path.join(self.pdfRoot, "pdfs")
@@ -57,10 +58,9 @@ class PaperScraper:
             print(f'pdf {output_name} not available in url {url}.')
 
     def fetch_pdf_if_exists(self, pmid):
-        print("Storing metadata for pmid:", pmid)
         src = FindIt(pmid)
         if src.url is None: 
-            print("Paper's pdf was not accessible. Reason:")
+            print("Error: Paper's pdf was not accessible. Reason:")
             print(src.reason)
             for s in src.reason.split(' '):
                 if s.startswith('http') or s.startswith("(http"):
