@@ -1,27 +1,38 @@
 from paper_scraper import PaperScraper
 from pdf_manager import PDFManager
+from metapub import PubMedFetcher
+import os
 
 ## todo: what ever format we support for the knowledgebase of Reactome goes in here
 class PaperManager:
-    def __init__(self):
+    def __init__(self, pdfRoot="papers"):
+        self.pdfRoot = pdfRoot
+        if not os.path.exists(self.pdfRoot):
+            os.mkdir(self.pdfRoot)
+        
+        self.paperScraper = PaperScraper(pdfRoot=self.pdfRoot)
+
         # Initialize the list of papers
-        self.papers = []
+        #self.papers = self.paperScraper.metadf
 
-    def index_papers(self):
-        # Index and embed the papers using Langchain
-        pass
+    def get_papers_for_query(self, pmidFile, num_pmids=3, pmc_only=True):
+        with open(pmidFile) as f:
+            for query in f:
+                query = query.strip()
+                print(query)
+                pmidList = PubMedFetcher().pmids_for_medical_genetics_query(query=query, retmax=num_pmids, pmc_only=pmc_only)
+                print("pmids:")
+                print(pmidList)
+                self.paperScraper.scrape_all(pmidList, query)
+        self.paperScraper.write_meta()
 
-    def store_papers(self):
-        # loads papers from db
-        pass
-
-    def scrape_papers_metadata(self):
-        # scrape papers from web
-        pass
-
-    def scrape_papers(self):
-        # scrape papers from web
-        pass
+    def get_papers_using_pmidFile(self, pmidFile):
+        with open(pmidFile) as f:
+            # reading the file
+            data = f.read()
+            pmidList = data.strip().split("\n")
+            self.paperScraper.scrape_all(pmidList)
+            self.paperScraper.write_meta()
 
     def load_papers_metadata(self):
         # load papers metadata from a csv file or the db
