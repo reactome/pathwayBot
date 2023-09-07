@@ -73,8 +73,10 @@ class PaperScraper:
                     print(s)
                     self.store_pdf(s, f'{pmid}.pdf')
                     break
+            return True
         else:
             self.store_pdf(src.url, f'{pmid}.pdf')
+            return False
 
     def store_text(self, pmid):
         directory = os.path.join(self.pdfRoot, "txts")
@@ -92,24 +94,26 @@ class PaperScraper:
 
             with open(output_name, 'w', encoding='utf-8') as file:
                 file.write(f"{plain_text}")
+            return True
         else:
             print(f"Error: {pmid} not found in PMC database.")
+            return False
 
 
     def scrape_all(self, pmidlist, query="", fetchPDF=True):
         self.pmas = []
-        pmcidlist = []
         for pmid in pmidlist:
             pmid = pmid.strip()
             print("pmid: ", pmid)
             pma = self.scrape_metainfo(pmid)
-            pmcid = pubmedcentral.get_pmcid_for_otherid(pmid)
-            pma['pmcid'] = pmcid
+            #pmcid = pubmedcentral.get_pmcid_for_otherid(pmid)
+            #pma['pmcid'] = pmcid
+            if fetchPDF:
+                ret = self.fetch_pdf_if_exists(pmid)
+                pma['hasPDF'] = ret
+                ret = self.store_text(pmid)
+                pma['hasTXT'] = ret
             self.pmas.append(pma)
-            # if fetchPDF:
-            #     self.fetch_pdf_if_exists(pmid)
-            pmcidlist.append(pmcid)
-            self.store_text(pmid)
 
         newList = pd.DataFrame.from_records(self.pmas)
         newList["query"] = query
