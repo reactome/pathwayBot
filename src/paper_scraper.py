@@ -5,6 +5,12 @@ from metapub import PubMedFetcher
 from metapub import exceptions
 from urllib.request import urlretrieve
 
+from metapub import pubmedcentral
+
+from Bio import Entrez
+import xmltodict
+from bs4 import BeautifulSoup
+
 import pandas as pd
 import os
 
@@ -45,7 +51,6 @@ class PaperScraper:
     ## url: 'https://onlinelibrary.wiley.com/doi/pdf/10.1002/jcb.20409'
     ## output_name: 15723341.pdf
     def store_pdf(self, url, output_name):
-        print("Storing metadata for pmid:", pmid)
         r = requests.get(url)
         if r.headers.get('content-type') == 'application/pdf':
             directory = os.path.join(self.pdfRoot, "pdfs")
@@ -71,15 +76,41 @@ class PaperScraper:
         else:
             self.store_pdf(src.url, f'{pmid}.pdf')
 
+    def store_text(self, pmid):
+        directory = os.path.join(self.pdfRoot, "txts")
+        if not os.path.exists(directory):
+            os.mkdir(directory)
+        output_name = "/".join([directory,f'{pmid}.txt'])
+        url = "https://www.ncbi.nlm.nih.gov/research/bionlp/RESTful/pmcoa.cgi/BioC_xml/{pmid}/unicode".format(pmid = str(pmid))
+        response = requests.get(url)
+        
+        print("response status code: ", response.status_code)
+        if response.status_code == 200:
+            xml_content = response.content.decode("utf-8")
+            soup = BeautifulSoup(xml_content, "xml")
+            plain_text = soup.get_text(separator=" ")
+
+            with open(output_name, 'w', encoding='utf-8') as file:
+                file.write(f"{plain_text}")
+        else:
+            print(f"Error: {pmid} not found in PMC database.")
+
+
     def scrape_all(self, pmidlist, query="", fetchPDF=True):
         self.pmas = []
+        pmcidlist = []
         for pmid in pmidlist:
             pmid = pmid.strip()
             print("pmid: ", pmid)
             pma = self.scrape_metainfo(pmid)
-            if fetchPDF:
-                self.fetch_pdf_if_exists(pmid)
+            pmcid = pubmedcentral.get_pmcid_for_otherid(pmid)
+            pma['pmcid'] = pmcid
             self.pmas.append(pma)
+            # if fetchPDF:
+            #     self.fetch_pdf_if_exists(pmid)
+            pmcidlist.append(pmcid)
+            self.store_text(pmid)
+
         newList = pd.DataFrame.from_records(self.pmas)
         newList["query"] = query
         print("len(newList):", len(newList))
