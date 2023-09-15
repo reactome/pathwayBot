@@ -1,7 +1,7 @@
 import os
 import openai
 from dotenv import load_dotenv, find_dotenv
-from langchain.llms import OpenAI
+from langchain.chat_models import ChatOpenAI
 
 
 class LLMInteractor:
@@ -12,5 +12,5 @@ class LLMInteractor:
         openai.organization = os.environ['OPENAI_ORGANIZATION']
 
     def get_chatGPT(self, model_name="gpt-4", temperature=0.1):
-        llm = OpenAI(model_name="gpt-4", temperature=0.1, openai_api_key=openai.api_key)
+        llm = ChatOpenAI(model_name=model_name, temperature=temperature, openai_api_key=openai.api_key)
         return llm

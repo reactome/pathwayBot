@@ -3,15 +3,21 @@
 import argparse
 import os
 from paper_manager import PaperManager
+from summary_generator import SummaryGenerator
 
 def add_list_of_pmids(file_path, outdir_path):
-    print(f"Adding list of PMIDs from file: {file_path} to directory {outdir_path}.")
+    print(f"""
+          
+          Adding list of PMIDs from file: {file_path} to directory {outdir_path}.""")
     pm = PaperManager(outdir_path)
     pm.get_papers_using_pmidFile(file_path)
 
 def add_query_pmids(file_path, outdir_path, num_pmids, oa=False):
-    print(f"""Adding {num_pmids} PMIDs for papers most relevant to queries in file: 
-          {file_path} and store to directory {outdir_path}.""")
+    print(f"""
+          
+          Adding {num_pmids} PMIDs for papers most relevant to queries in file: 
+          {file_path} and store to directory {outdir_path}.
+          Only OA: {oa}""")
     pm = PaperManager(outdir_path)
     pm.get_papers_for_query(file_path, num_pmids, oa)
 
@@ -21,18 +27,26 @@ def add_biopax(file_path, outdir_path):
 def add_knowledge_graph(file_path, outdir_path):
     print(f"Adding knowledge graph from file: {file_path} to directory {outdir_path}.")
 
+def summarize_pathway_batch(file_path, kg_file, outdir_path):
+    print(f"Running summary generator for pathways in: {file_path} and storing results to directory {outdir_path}.")    
+    SummaryGenerator(kg_file).generate_batch_summary(file_path, outdir_path)
+    
 def run_chatbot():
     print("Running the chatbot...")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Task Selector")
-    parser.add_argument("task", type=str, choices=["add_pmids", "find_add_pmids", "add_biopax", "add_kg", "run_chatbot"], 
+    parser.add_argument("task", type=str, choices=["add_pmids", "find_add_pmids", "add_biopax", "add_kg", "run_chatbot", "summarize_pathway_batch"], 
                         help="Choose a command: add_pmids, add_biopax, add_kg, run_chatbot")
     
     # Optional arguments for specific tasks
     parser.add_argument("--file", type=str, 
-                        help="File path containing list of PMIDs for task \
-                        add_pmids, queries to search for find_add_pmids, BioPAX for task add_biopax, or knowledge graph for task add_kg")
+                        help="""File path containing list of PMIDs for task \
+                        add_pmids, 
+                        queries to search for find_add_pmids, 
+                        BioPAX for task add_biopax, 
+                        knowledge graph for task add_kg,
+                        or list of pathways for task summarize_pathway_batch.""")
 
     parser.add_argument("--num_pmids", type=int, 
                         help="number of PMIDs to select from most relevant PMIDs found for the search query",
@@ -45,12 +59,15 @@ if __name__ == "__main__":
                         help="Directory path to store output files for tasks \
                         add_pmids, add_biopax, or add_kg (default: current directory)",
                         default="./")
+    
+    parser.add_argument("--kg_file", type=str, 
+                        help="The path to the knowledge-graph file in gml format.")
 
     args = parser.parse_args()
 
     task = args.task
 
-    if any(task == c for c in ["add_pmids", "find_add_pmids", "add_biopax", "add_kg"]):
+    if any(task == c for c in ["add_pmids", "find_add_pmids", "add_biopax", "add_kg", "summarize_pathway_batch"]):
         if not args.file:
             print("Error: Task requires parameter \"--file\".")
             exit(1)
@@ -76,6 +93,15 @@ if __name__ == "__main__":
 
     elif task == "add_kg":
         add_knowledge_graph(args.file, args.outdir)
+
+    elif task == "summarize_pathway_batch":
+        if not args.kg_file:
+            print("Error: Task requires parameter \"--kg_file\".")
+            exit(1)
+        elif not os.path.isfile(args.kg_file):
+            print(f"Error: File \"{args.kg_file}\" does not exist.")
+            exit(1)
+        summarize_pathway_batch(args.file, args.kg_file, args.outdir)
 
     elif task == "run_chatbot":
         run_chatbot()

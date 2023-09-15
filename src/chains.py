@@ -5,7 +5,6 @@ import time
 import pinecone
 
 from langchain.chains import LLMChain,GraphQAChain,RetrievalQA, TransformChain, SequentialChain
-from langchain.chat_models import ChatOpenAI
 from langchain.indexes.graph import NetworkxEntityGraph
 
 from langchain.embeddings import OpenAIEmbeddings
@@ -19,12 +18,13 @@ from langchain.evaluation import load_evaluator
 import prompts
 
 class Chains:
-    def __init__(self, model, graph_file='data/kg/reactome2langChainGraph2023.gml'):
+    def __init__(self, model, graph_file):
         self.embeddings = OpenAIEmbeddings() ## todo be replaced with suggested one from huggingface
         pinecone.init(api_key=os.environ["PINECONE_API_KEY"], environment=os.environ["PINECONE_ENV"])
         ### Use existing index
         self.vectorstore = Pinecone.from_existing_index("pathway-summation", self.embeddings)
         self.model = model
+        self.create_ftC()
         self.create_graphC(graph_file)
         self.create_citationC()
         self.create_mergeC()
@@ -32,7 +32,7 @@ class Chains:
 
         self.sequential_chain = SequentialChain(chains=[self.qa, self.gc, self.combine_chain, self.citing_chain], 
                                          input_variables=["query"], 
-                                         output_variables=["ft_answer", "kg_answer", "source_documents", "result", "output_text"])    
+                                         output_variables=["ft_answer", "kg_answer", "source_documents", "ft_kg_answer", "output_text"])    
 
     def create_graphC(self, graph_file):
         graph = NetworkxEntityGraph.from_gml(graph_file)
@@ -46,15 +46,17 @@ class Chains:
 
     def create_ftC(self):
         metadata_field_info=[
-        AttributeInfo(
-            name="query",
-            description="The title of the pathway", 
-            type="string or list[string]", 
-        )
-        ]
+            AttributeInfo(
+                name="query",
+                description="The title of the pathway", 
+                type="string or list[string]")]
+        
         document_content_description = "Reactome-level summation of a pathway"
 
-        retriever = SelfQueryRetriever.from_llm(self.model, self.vectorstore, document_content_description, metadata_field_info, verbose=True)
+        retriever = SelfQueryRetriever.from_llm(self.model, self.vectorstore, 
+                                                document_content_description, 
+                                                metadata_field_info, 
+                                                verbose=True)
         self.qa = RetrievalQA.from_chain_type(llm=self.model, 
                                  retriever=retriever, 
                                  return_source_documents = True, 
@@ -64,7 +66,7 @@ class Chains:
 
     def create_citationC(self):
         self.citing_chain = TransformChain(
-            input_variables=["ft_answer", "kg_answer", "result", "source_documents"], output_variables=["output_text"], 
+            input_variables=["ft_answer", "kg_answer", "ft_kg_answer", "source_documents"], output_variables=["output_text"], 
             transform=transform_func
         )
 
@@ -72,7 +74,7 @@ class Chains:
     def create_mergeC(self):
         self.combine_chain = LLMChain(llm=self.model,
                          prompt=prompts.combine_prompt,
-                         output_key="result")
+                         output_key="ft_kg_answer")
                            
 
 def transform_func(inputs: dict) -> dict:
@@ -80,7 +82,7 @@ def transform_func(inputs: dict) -> dict:
     output = ""
     citations = []
     references = set()
-    text = inputs["result"]
+    text = inputs["ft_kg_answer"]
     kg = inputs["kg_answer"]
     ft = inputs["ft_answer"]
     sources = inputs['source_documents']
