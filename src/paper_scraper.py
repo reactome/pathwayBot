@@ -47,6 +47,9 @@ class PaperScraper:
                 pass
         return pma.to_dict()
     
+    """
+    Store PDF file from the given URL
+    """
     ## example:
     ## url: 'https://onlinelibrary.wiley.com/doi/pdf/10.1002/jcb.20409'
     ## output_name: 15723341.pdf
@@ -62,6 +65,9 @@ class PaperScraper:
         else:
             print(f'pdf {output_name} not available in url {url}.')
 
+    """
+    find a valid url for the pmid that points to a PDF and store it if exists
+    """
     def fetch_pdf_if_exists(self, pmid):
         src = FindIt(pmid)
         if src.url is None: 
@@ -78,6 +84,9 @@ class PaperScraper:
             self.store_pdf(src.url, f'{pmid}.pdf')
             return False
 
+    """
+    Store the full content of the paper in txt format if exists and is open access
+    """
     def store_text(self, pmid):
         directory = os.path.join(self.pdfRoot, "txts")
         if not os.path.exists(directory):
@@ -100,6 +109,29 @@ class PaperScraper:
             return False
 
 
+    """
+    Extract and store abstract from PMA (metadata) of the pmid
+    """
+    def store_abstract(self, pma):
+        pmid = pma['pmid']
+        abstract = pma['abstract']
+        directory = os.path.join(self.pdfRoot, "abstracts")
+        if not os.path.exists(directory):
+            os.mkdir(directory)
+        output_name = "/".join([directory,f'{pmid}.txt'])
+
+        with open(output_name, 'w', encoding='utf-8') as file:
+            file.write(f"{abstract}")
+        return True
+
+
+    """
+    Scrape all information for each pmid in the list:
+    1. Save meta data for the paper:
+        title, year of publication, journal, authors, keywords, etc. 
+    2. If OA, download pdf and txt format of it
+    3. else, store the abstract for the paper
+    """
     def scrape_all(self, pmidlist, query="", fetchPDF=True):
         self.pmas = []
         for pmid in pmidlist:
@@ -108,21 +140,39 @@ class PaperScraper:
             pma = self.scrape_metainfo(pmid)
             #pmcid = pubmedcentral.get_pmcid_for_otherid(pmid)
             #pma['pmcid'] = pmcid
-            if fetchPDF:
-                ret = self.fetch_pdf_if_exists(pmid)
-                pma['hasPDF'] = ret
-                ret = self.store_text(pmid)
-                pma['hasTXT'] = ret
-            self.pmas.append(pma)
+            if (pma['abstract'] != ''):
+                self.store_abstract(pma)
+                pma['hasPDF'] = False
+                pma['hasTXT'] = False
+                if fetchPDF:
+                    ret = self.fetch_pdf_if_exists(pmid)
+                    pma['hasPDF'] = ret
+                    ret = self.store_text(pmid)
+                    pma['hasTXT'] = ret
+                self.pmas.append(pma)
+            else:
+                print(f"ERROR: {pmid} No abstracts!!")
 
         newList = pd.DataFrame.from_records(self.pmas)
         newList["query"] = query
         print("len(newList):", len(newList))
         print("len(previousList):", len(self.metadf))
         self.metadf = pd.concat([newList,self.metadf])
-        self.metadf.drop_duplicates('doi', inplace=True)
+        self.metadf.drop_duplicates(['doi', 'query'], inplace=True)
         print("len(concatenated):", len(self.metadf))
 
+    """
+    Write updated list of metadata for the papers
+    """
     def write_meta(self):
+        print("len(metadf): ", len(self.metadf))
+        print("storing metadf in file ", self.csv_file)
+        #self.metadf.dropna(inplace=True)
+        #print("len(metadf) after dropna: ", len(self.metadf))
+        print(self.metadf)
         self.metadf.to_csv(self.csv_file, index=None)
             
+
+    def __del__(self):
+        print("In paper scraper's deconstructor.")
+        self.write_meta()

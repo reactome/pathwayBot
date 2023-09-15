@@ -9,3 +9,6 @@ urllib
 chainlit
 os
 pandas
+pypdf
+pinecone-client
+lark
