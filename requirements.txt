@@ -13,3 +13,7 @@ pypdf
 pinecone-client
 lark
 streamlit
+
+nltk
+rouge
+bert_score
