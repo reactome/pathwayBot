@@ -1,12 +1,25 @@
 from langchain import PromptTemplate
-from langchain.prompts import ChatPromptTemplate
+from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain.prompts.chat import SystemMessagePromptTemplate, HumanMessagePromptTemplate
+
+
+
+simple_prompt = PromptTemplate.from_template(template="{query}")
+
+simple_chat_prompt = ChatPromptTemplate.from_messages([
+    SystemMessagePromptTemplate.from_template("""
+                                              Follow the instructions below in your answer: 
+                                              1. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+                                              2. Make sure the answer is as concise as possible
+                                              """),
+    HumanMessagePromptTemplate.from_template("""{question}""")    
+])
 
 qa_prompt = ChatPromptTemplate.from_messages([
     SystemMessagePromptTemplate.from_template("""
                                               Follow the instructions below in your answer: 
                                               1. If you don't know the answer, just say that you don't know, don't try to make up an answer.
-                                              2. The length of the answer must be under 200 tokens
+                                              2. Make sure the answer is as concise as possible
                                               """),
     HumanMessagePromptTemplate.from_template("""Answer the following question using the given context: 
                                              {question} 

@@ -77,6 +77,10 @@ class Chains:
                          output_key="ft_kg_answer")
                            
 
+    def call_base(self, query):
+        return self.model(prompts.simple_chat_prompt.format_messages(question=query))
+
+
 def transform_func(inputs: dict) -> dict:
     start = time.time()
     output = ""
@@ -128,3 +132,4 @@ def transform_func(inputs: dict) -> dict:
     end = time.time()
     print(end - start)
     return {"output_text": output}
+
