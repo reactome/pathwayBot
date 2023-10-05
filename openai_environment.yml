@@ -528,4 +528,4 @@ dependencies:
       - xxhash==3.3.0
       - yarl==1.9.2
       - zope-interface==5.5.2
-prefix: /Users/falmodaresi/miniconda3/envs/openai
+prefix: ~/miniconda3/envs/openai
