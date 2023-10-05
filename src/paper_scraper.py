@@ -171,7 +171,10 @@ class PaperScraper:
         #print("len(metadf) after dropna: ", len(self.metadf))
         print(self.metadf)
         self.metadf.to_csv(self.csv_file, index=None)
-            
+
+    def load_meta(self):
+        self.metadf = pd.read_csv(self.csv_file)  
+        return self.metadf    
 
     def __del__(self):
         print("In paper scraper's deconstructor.")

@@ -14,3 +14,7 @@ class LLMInteractor:
     def get_chatGPT(self, model_name="gpt-4", temperature=0.1):
         llm = ChatOpenAI(model_name=model_name, temperature=temperature, openai_api_key=openai.api_key)
         return llm
+    
+    def get_static_chatGPT(self, model_name="gpt-4", temperature=0):
+        llm = ChatOpenAI(model_name=model_name, temperature=temperature, openai_api_key=openai.api_key)
+        return llm

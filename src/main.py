@@ -4,6 +4,7 @@ import argparse
 import os
 from paper_manager import PaperManager
 from summary_generator import SummaryGenerator
+import asyncio
 
 def add_list_of_pmids(file_path, outdir_path):
     print(f"""
@@ -29,7 +30,7 @@ def add_knowledge_graph(file_path, outdir_path):
 
 def summarize_pathway_batch(file_path, kg_file, outdir_path):
     print(f"Running summary generator for pathways in: {file_path} and storing results to directory {outdir_path}.")    
-    SummaryGenerator(kg_file).generate_batch_summary(file_path, outdir_path)
+    asyncio.run(SummaryGenerator(kg_file).concur_generate_batch_summary(file_path, outdir_path))
     
 def run_chatbot():
     print("Running the chatbot...")
@@ -101,7 +102,9 @@ if __name__ == "__main__":
         elif not os.path.isfile(args.kg_file):
             print(f"Error: File \"{args.kg_file}\" does not exist.")
             exit(1)
-        summarize_pathway_batch(args.file, args.kg_file, args.outdir)
+        asyncio.run(SummaryGenerator(args.kg_file).concur_generate_batch_summary(args.file, args.outdir))
+
+        #summarize_pathway_batch(args.file, args.kg_file, args.outdir)
 
     elif task == "run_chatbot":
         run_chatbot()

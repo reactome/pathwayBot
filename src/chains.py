@@ -2,6 +2,8 @@ import os
 import re
 import time
 
+from utils import SequentialType, AsyncGraphQAChain, AsyncSelfQueryRetriever
+
 import pinecone
 
 from langchain.chains import LLMChain,GraphQAChain,RetrievalQA, TransformChain, SequentialChain
@@ -13,6 +15,8 @@ from langchain.vectorstores import FAISS, Pinecone
 from langchain.retrievers.self_query.base import SelfQueryRetriever
 from langchain.chains.query_constructor.base import AttributeInfo
 
+from langchain.embeddings import HuggingFaceEmbeddings
+
 from langchain.evaluation import load_evaluator
 
 import prompts
@@ -20,28 +24,44 @@ import prompts
 class Chains:
     def __init__(self, model, graph_file):
         self.embeddings = OpenAIEmbeddings() ## todo be replaced with suggested one from huggingface
+        #self.embeddings = HuggingFaceEmbeddings(model_name = "sentence-transformers/multi-qa-mpnet-base-dot-v1", model_kwargs = {'device': 'cpu'}, encode_kwargs = {'normalize_embeddings': False})
+
         pinecone.init(api_key=os.environ["PINECONE_API_KEY"], environment=os.environ["PINECONE_ENV"])
         ### Use existing index
         self.vectorstore = Pinecone.from_existing_index("pathway-summation", self.embeddings)
         self.model = model
-        self.create_ftC()
-        self.create_graphC(graph_file)
-        self.create_citationC()
-        self.create_mergeC()
+        self.graph_file = graph_file
 
+        self.sequential_chain = self.create_sequentialC()
 
-        self.sequential_chain = SequentialChain(chains=[self.qa, self.gc, self.combine_chain, self.citing_chain], 
-                                         input_variables=["query"], 
-                                         output_variables=["ft_answer", "kg_answer", "source_documents", "ft_kg_answer", "output_text"])    
+    def create_sequentialC(self, type=SequentialType.BASE):
+        gc = self.create_graphC(self.graph_file)
+        citing_chain = self.create_citationC()
+
+        if type in [SequentialType.BASE,SequentialType.KG_FOCUS,SequentialType.KG_FOCUS_LIMITED_TOKEN]:
+            qa = self.create_ftC()
+            combine_chain = self.create_mergeC(type)
+            sequential_chain = SequentialChain(chains=[gc, qa, combine_chain, citing_chain], 
+                                               input_variables=["query"], 
+                                               output_variables=["ft_answer", "kg_answer", "source_documents", "ft_kg_answer", "output_text"])    
+        elif type in [SequentialType.KG_EXPANDER, SequentialType.KG_EXPANDER_LIMITED_TOKEN]:
+            qa = self.create_ftC()
+            combine_chain = self.create_kg_expanderC()
+            sequential_chain = SequentialChain(chains=[gc, qa, combine_chain, citing_chain], 
+                                               input_variables=["query"], 
+                                               output_variables=["ft_answer", "kg_answer", "source_documents", "ft_kg_answer", "output_text"])    
+        return sequential_chain
+
 
     def create_graphC(self, graph_file):
         graph = NetworkxEntityGraph.from_gml(graph_file)
-        self.gc = GraphQAChain.from_llm(self.model, 
+        gc = AsyncGraphQAChain.from_llm(self.model, 
                            graph=graph, 
                            verbose=True, 
                            template=prompts.kg_prompt, 
                            input_key="query", 
                            output_key="kg_answer")
+        return gc
         
 
     def create_ftC(self):
@@ -53,33 +73,60 @@ class Chains:
         
         document_content_description = "Reactome-level summation of a pathway"
 
-        retriever = SelfQueryRetriever.from_llm(self.model, self.vectorstore, 
+        retriever = AsyncSelfQueryRetriever.from_llm(self.model, self.vectorstore, 
                                                 document_content_description, 
                                                 metadata_field_info, 
                                                 verbose=True)
-        self.qa = RetrievalQA.from_chain_type(llm=self.model, 
+        qa = RetrievalQA.from_chain_type(llm=self.model, 
                                  retriever=retriever, 
                                  return_source_documents = True, 
                                  chain_type_kwargs={"prompt": prompts.qa_prompt},
                                  output_key="ft_answer",
                                  verbose=True)
+        return qa
 
     def create_citationC(self):
-        self.citing_chain = TransformChain(
+        citing_chain = TransformChain(
             input_variables=["ft_answer", "kg_answer", "ft_kg_answer", "source_documents"], output_variables=["output_text"], 
             transform=transform_func
         )
+        return citing_chain
 
 
-    def create_mergeC(self):
-        self.combine_chain = LLMChain(llm=self.model,
-                         prompt=prompts.combine_prompt,
+    def create_mergeC(self, type=SequentialType.BASE):
+        if type == SequentialType.BASE:
+            combine_chain = LLMChain(llm=self.model,
+                            prompt=prompts.combine_prompt,
+                            output_key="ft_kg_answer")
+        elif type == SequentialType.KG_FOCUS:
+            combine_chain = LLMChain(llm=self.model,
+                         prompt=prompts.combine_with_focus_on_kg_prompt,
                          output_key="ft_kg_answer")
+        elif type == SequentialType.KG_FOCUS_LIMITED_TOKEN:
+            combine_chain = LLMChain(llm=self.model,
+                         prompt=prompts.combine_with_focus_on_kg_limited_token_prompt,
+                         output_key="ft_kg_answer")
+        else:
+            print(f"Error: Unexpected Type for combining_chain: {type}")
+            exit(1)
+        return combine_chain
                            
+    def create_kg_expanderC(self, type=SequentialType.KG_EXPANDER):
+        if type == SequentialType.KG_EXPANDER:
+            combine_chain = LLMChain(llm=self.model,
+                         prompt=prompts.combine_with_focus_on_kg_prompt,
+                         output_key="ft_kg_answer")
+        return combine_chain
 
     def call_base(self, query):
         return self.model(prompts.simple_chat_prompt.format_messages(question=query))
 
+    async def async_call_base(self, query):
+        baseChain = LLMChain(llm=self.model, prompt=prompts.simple_chat_prompt)
+        res = await baseChain.acall({"question":query})
+        #print(res)
+        #res = await self.model.agenerate(prompts.simple_chat_prompt.format_messages(question=query))
+        return res
 
 def transform_func(inputs: dict) -> dict:
     start = time.time()

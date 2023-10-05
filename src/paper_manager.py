@@ -7,6 +7,13 @@ import pandas as pd
 
 from Bio import Entrez
 
+import pinecone
+from langchain.vectorstores import Pinecone
+from langchain.document_loaders import PyMuPDFLoader
+from langchain.document_loaders import DirectoryLoader
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
 
 ## todo: what ever format we support for the knowledgebase of Reactome goes in here
 class PaperManager:
@@ -16,9 +23,35 @@ class PaperManager:
             os.mkdir(self.pdfRoot)
         
         self.paperScraper = PaperScraper(pdfRoot=self.pdfRoot)
+        self.embeddings = HuggingFaceEmbeddings(model_name = "sentence-transformers/multi-qa-mpnet-base-dot-v1", model_kwargs = {'device': 'cpu'}, encode_kwargs = {'normalize_embeddings': False})
 
+        self.index_name = "pathway-summation"
         # Initialize the list of papers
         #self.papers = self.paperScraper.metadf
+        pinecone.init(api_key=os.environ["PINECONE_API_KEY"], environment=os.environ["PINECONE_ENV"])
+
+    ##ToDo: Not tested yet
+    def create_new_index_for_papers(self):
+        ## pinecone index construction
+        pinecone.create_index(self.index_name, dimension=1536)
+        self.load_papers_metadata()
+        loader = DirectoryLoader(f'{self.pdfRoot}/pdfs', glob = "*.pdf", loader_cls=PyMuPDFLoader, show_progress=True)
+        pdfs = loader.load()
+        for d in pdfs:
+            pmid=int(d.metadata['source'].split('/')[-1][:-4].strip())
+            pmadict = self.metadata[self.metadata['pmid'] == pmid]
+            for key in pmadict.columns:
+                if key not in ['xml','abstract']:
+                    d.metadata[key] = str(pmadict[key].values[0])
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+        texts = text_splitter.split_documents(pdfs)
+        pinecone.create_index(self.index_name, dimension=1536)
+        self.vectorstore = Pinecone.from_documents(texts, self.embeddings, index_name=self.index_name)
+
+    def add_to_index(self):
+        self.vectorstore = Pinecone.from_existing_index(self.index_name, self.embeddings)
+        ### add the new document
+
 
     def search_by_query(self, query, retmax=5, pmc_only=False, sort="relevance"):
 
@@ -55,8 +88,7 @@ class PaperManager:
 
     def load_papers_metadata(self):
         # load papers metadata from a csv file or the db
-        self.metadata = pd.read_csv()
-        pass
+        self.metadata = self.paperScraper.load_meta()
 
     def create_citation_from_meta(self, paper_txt):
         pmid=int(paper_txt.metadata['source'].split('/')[-1][:-4].strip())
