@@ -15,7 +15,7 @@ class SummaryGenerator:
 
     async def async_generate_summary(self, pathway_title, round, method, seqType, isStatic=False):
         #query = f"{pathway_title} when query is similar or equal to {pathway_title}"
-        query = f"Provide a summary for pathway \"{pathway_title}\""
+        query = pathway_title
         with get_openai_callback() as cb:
             if isStatic:
                 seqChain = self.static_gpt_chains.create_sequentialC(seqType)
