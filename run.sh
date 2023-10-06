@@ -1,3 +1,14 @@
+### These environment variables should be set in the venv file:
+### export OPENAI_API_KEY=
+### export OPENAI_ORGANIZATION=
+### export PINECONE_API_KEY=
+### export PINECONE_ENV=
+### export SERPER_API_KEY=
+### export SCRAPER_API_KEY=
+
+### you need to request access to the PINECONE Pathway_summation index.
+ 
+
 python3 -m venv env
 source env/bin/activate
 pip install -r requirements.txt
