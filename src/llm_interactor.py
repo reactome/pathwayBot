@@ -11,10 +11,7 @@ class LLMInteractor:
         openai.api_key  = os.environ['OPENAI_API_KEY']
         openai.organization = os.environ['OPENAI_ORGANIZATION']
 
-    def get_chatGPT(self, model_name="gpt-4", temperature=0.1):
-        llm = ChatOpenAI(model_name=model_name, temperature=temperature, openai_api_key=openai.api_key)
+    def get_chatGPT(self, model_name="gpt-4", temperature=0.1, streaming=False):
+        llm = ChatOpenAI(model_name=model_name, temperature=temperature, streaming=streaming, openai_api_key=openai.api_key)
         return llm
     
-    def get_static_chatGPT(self, model_name="gpt-4", temperature=0):
-        llm = ChatOpenAI(model_name=model_name, temperature=temperature, openai_api_key=openai.api_key)
-        return llm

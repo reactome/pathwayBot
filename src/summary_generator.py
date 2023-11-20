@@ -10,8 +10,8 @@ class SummaryGenerator:
     def __init__(self, kg_file):
 
         self.llmInteractor = LLMInteractor()
-        self.chains = Chains(self.llmInteractor.get_static_chatGPT(), kg_file)
-        self.static_gpt_chains = Chains(self.llmInteractor.get_static_chatGPT(), kg_file)
+        self.chains = Chains(self.llmInteractor.get_chatGPT(), kg_file)
+        self.static_gpt_chains = Chains(self.llmInteractor.get_chatGPT(temperature=0), kg_file)
 
     async def async_generate_summary(self, pathway_title, round, method, seqType, isStatic=False):
         #query = f"{pathway_title} when query is similar or equal to {pathway_title}"
@@ -46,7 +46,7 @@ class SummaryGenerator:
                 #     tasks.append(self.async_generate_summary(query, c, "dynamic", SequentialType.KG_FOCUS_LIMITED_TOKEN))
                 outputs = await asyncio.gather(*tasks)
 
-
+                ## seqType is of type SequentialType
                 for query, result, duration, round, method, seqType in outputs:
                     if method == "gpt4-static":
                         summary_list.append([round, duration, query, method, result])

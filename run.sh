@@ -22,3 +22,5 @@ mkdir -p examples/outputs/pmid_out12 && /usr/bin/time python src/main.py find_ad
 
 ### sample to generate summaries for a list of queries (pathways) stored in a file, separated by newline
 mkdir -p examples/outputs/pmid_out12 && /usr/bin/time python src/main.py summarize_pathway_batch --file examples/query_test12.lst --outdir examples/outputs/pmid_out12 --kg_file data/kg/reactome2langChainGraph2023.gml 
+
+mkdir -p examples/outputs/pmid_out12/mcqas && /usr/bin/time python src/main.py summarize_pathway_batch --file examples/multipleChoiceQs.txt --outdir examples/outputs/pmid_out12/mcqas --kg_file data/kg/reactome2langChainGraph2023.gml 
